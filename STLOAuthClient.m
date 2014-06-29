@@ -44,7 +44,7 @@ static NSString* URLEncodeString(NSString *string);
 - (id) initWithBaseURL:(NSURL *)url;
 - (void) addGeneratedTimestampAndNonceInto:(NSMutableDictionary *)dictionary;
 
-- (NSString *) authorizationHeaderValueForRequest:(NSURLRequest *)request;
+- (NSString *) authorizationHeaderValueForRequest:(NSURLRequest *)request params:(NSDictionary *)params;
 @end
 
 @implementation STLOAuthClient
@@ -88,7 +88,13 @@ realm = _realm;
     NSMutableURLRequest *request = [super requestWithMethod:method path:path parameters:parameters];
     
     if (self.signRequests) {
-        NSString *authorizationHeader = [self authorizationHeaderValueForRequest:request];
+        NSString *authorizationHeader = nil;
+		if (self.parameterEncoding == AFFormURLParameterEncoding) {
+			authorizationHeader = [self authorizationHeaderValueForRequest:request params:parameters];
+		}else{
+			authorizationHeader = [self authorizationHeaderValueForRequest:request params:nil];
+		}
+		
         [request setValue:authorizationHeader forHTTPHeaderField:@"Authorization"];
     }
     
@@ -104,7 +110,7 @@ realm = _realm;
 - (NSURLRequest *) signedRequestWithMethod:(NSString *)method path:(NSString *)path parameters:(NSDictionary *)parameters {
     NSMutableURLRequest *request = [super requestWithMethod:method path:path parameters:parameters];
     
-    NSString *authorizationHeader = [self authorizationHeaderValueForRequest:request];
+    NSString *authorizationHeader = [self authorizationHeaderValueForRequest:request params:parameters];
     [request setValue:authorizationHeader forHTTPHeaderField:@"Authorization"];
     
     return request;
@@ -137,7 +143,10 @@ static const NSString *kOAuthVersion1_0 = @"1.0";
 
 - (NSString *) stringWithOAuthParameters:(NSMutableDictionary *)oauthParams requestParameters:(NSDictionary *)parameters {
     NSMutableDictionary *params = [NSMutableDictionary dictionaryWithDictionary:oauthParams];
-    [params addEntriesFromDictionary:parameters];
+	
+	if (parameters != nil) {
+		[params addEntriesFromDictionary:parameters];
+	}
     
     // sorting parameters
     NSArray *sortedKeys = [[params allKeys] sortedArrayUsingComparator:^NSComparisonResult(NSString *key1, NSString *key2) {
@@ -158,7 +167,7 @@ static const NSString *kOAuthVersion1_0 = @"1.0";
     return [longListOfParameters componentsJoinedByString:@"&"];
 }
 
-- (NSString *) authorizationHeaderValueForRequest:(NSURLRequest *)request {
+- (NSString *) authorizationHeaderValueForRequest:(NSURLRequest *)request params:(NSDictionary *)params {
     NSURL *url = request.URL;
     NSString *fixedURL = [self baseURLforAddress:url];
     NSMutableDictionary *oauthParams = [self mutableDictionaryWithOAuthInitialData];
@@ -173,7 +182,7 @@ static const NSString *kOAuthVersion1_0 = @"1.0";
         }
     }
     
-    NSString *allParameters = [self stringWithOAuthParameters:oauthParams requestParameters:parameters];
+    NSString *allParameters = [self stringWithOAuthParameters:oauthParams requestParameters:params];
     // adding HTTP method and URL
     NSString *signatureBaseString = [NSString stringWithFormat:@"%@&%@&%@", [request.HTTPMethod uppercaseString], URLEncodeString(fixedURL), URLEncodeString(allParameters)];
     
