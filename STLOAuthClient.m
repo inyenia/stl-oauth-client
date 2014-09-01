@@ -160,7 +160,7 @@ static const NSString *kOAuthVersion1_0 = @"1.0";
     // join keys and values with =
     NSMutableArray *longListOfParameters = [NSMutableArray arrayWithCapacity:[sortedKeys count]];
     [sortedKeys enumerateObjectsUsingBlock:^(NSString *key, NSUInteger idx, BOOL *stop) {
-        [longListOfParameters addObject:[NSString stringWithFormat:@"%@=%@", key, [params objectForKey:key]]];
+        [longListOfParameters addObject:[NSString stringWithFormat:@"%@=%@", key, URLEncodeString([params objectForKey:key])]];
     }];
     
     // join components with &
