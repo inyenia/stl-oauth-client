@@ -1,56 +1,91 @@
 //
-//  STLOAuthClient.h
+//  AFOAuth1Client.h
 //
-//  Created by Marcelo Alves on 07/04/12.
-//  Copyright (c) 2012 Some Time Left. All rights reserved.
-//
-//  Redistribution and use in source and binary forms, with or without
-//  modification, are permitted provided that the following conditions are met:
-// 
-//  Redistributions of source code must retain the above copyright notice, this
-//  list of conditions and the following disclaimer. Redistributions in binary
-//  form must reproduce the above copyright notice, this list of conditions and
-//  the following disclaimer in the documentation and/or other materials
-//  provided with the distribution. Neither the name of the Some Time Left nor
-//  the names of its contributors may be used to endorse or promote products
-//  derived from this software without specific prior written permission. THIS
-//  SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-//  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-//  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-//  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-//  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-//  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-//  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-//  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-//  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-//  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-//  POSSIBILITY OF SUCH DAMAGE.
+//  Created by Joel Chen on 3/4/14.
+//  Copyright (c) 2014 Joel Chen [http://lnkd.in/bwwnBWR]
 //
 
-#import "AFHTTPClient.h"
+#import <Foundation/Foundation.h>
+#import "AFNetworking.h"
 
-@interface STLOAuthClient : AFHTTPClient
+typedef NS_ENUM(NSUInteger, AFOAuthSignatureMethod) {
+	AFPlainTextSignatureMethod = 1,
+	AFHMACSHA1SignatureMethod = 2,
+};
 
-// designated initializer.
-- (id) initWithBaseURL:(NSURL *)url consumerKey:(NSString *)consumerKey secret:(NSString *)consumerSecret;
+typedef enum {
+	AFFormURLParameterEncoding,
+	AFJSONParameterEncoding,
+	AFPropertyListParameterEncoding,
+} AFHTTPClientParameterEncoding;
 
-- (void) setAccessToken:(NSString *)accessToken secret:(NSString *)secret;
-- (void) setConsumerKey:(NSString *)consumerKey secret:(NSString *)secret;
+typedef void (^AFServiceProviderRequestHandlerBlock)(NSURLRequest *request);
+typedef void (^AFServiceProviderRequestCompletionBlock)();
 
-@property (nonatomic) BOOL signRequests;
+@class STLOAuthClient;
+
+@interface STLOAuthClient : AFHTTPRequestOperationManager
+@property (readwrite, nonatomic, copy) NSURL *url;
+@property (readwrite, nonatomic, copy) NSString *consumerKey;
+@property (readwrite, nonatomic, copy) NSString *consumerSecret;
+@property (readwrite, nonatomic, copy) NSString *token;
+@property (readwrite, nonatomic, copy) NSString *tokenSecret;
+@property (readwrite, nonatomic, strong) id applicationLaunchNotificationObserver;
+@property (readwrite, nonatomic, copy) AFServiceProviderRequestHandlerBlock serviceProviderRequestHandler;
+@property (readwrite, nonatomic, copy) AFServiceProviderRequestCompletionBlock serviceProviderRequestCompletion;
+///-----------------------------------
+/// @name Managing OAuth Configuration
+///-----------------------------------
+
+@property (nonatomic, assign) AFOAuthSignatureMethod signatureMethod;
+
 @property (nonatomic, copy) NSString *realm;
-@property (copy,readonly) NSString *consumerKey;
-@property (copy,readonly) NSString *consumerSecret;
-@property (copy,readonly) NSString *tokenIdentifier;
-@property (copy,readonly) NSString *tokenSecret;
 
-- (NSURLRequest *) unsignedRequestWithMethod:(NSString *)method 
-                                        path:(NSString *)path 
-                                  parameters:(NSDictionary *)parameters;
+@property (nonatomic, strong) NSMutableDictionary *defaultHeaders;
 
-- (NSURLRequest *) signedRequestWithMethod:(NSString *)method 
-                                      path:(NSString *)path 
-                                parameters:(NSDictionary *)parameters;
+@property (nonatomic, assign) AFHTTPClientParameterEncoding parameterEncoding;
 
+@property (nonatomic, assign) NSStringEncoding stringEncoding;
 
++ (NSString *)queryStringFromParameters:(NSDictionary *)parameters encoding:(NSStringEncoding)stringEncoding;
+
+- (NSMutableURLRequest *)requestWithMethod:(NSString *)method path:(NSString *)path parameters:(NSDictionary *)parameters;
+
+///---------------------
+/// @name Initialization
+///---------------------
+
+/**
+ 
+ */
+- (id)initWithBaseURL:(NSURL *)url
+		  consumerKey:(NSString *)consumerKey
+	   consumerSecret:(NSString *)consumerSecret
+				token:(NSString *)token
+		  tokenSecret:(NSString *)tokenSecret;
+
+///----------------------------------------------------
+/// @name Configuring Service Provider Request Handling
+///----------------------------------------------------
+
+/**
+ 
+ */
+- (void)setServiceProviderRequestHandler:(void (^)(NSURLRequest *request))block
+							  completion:(void (^)())completion;
 @end
+
+///----------------
+/// @name Constants
+///----------------
+
+/**
+ 
+ */
+extern NSString * const kAFApplicationLaunchedWithURLNotification;
+
+/**
+ 
+ */
+extern NSString * const kAFApplicationLaunchOptionsURLKey;
+

@@ -1,4 +1,4 @@
-# STLOAuthClient = AFNetwork + OAuth 1.0a
+# STLOAuthClient = AFNetwork 2.X + OAuth 1.0a
 ## What is this?
 An OAuth 1.0a client using AFNetwork, ARC enabled.
 ## Does it work?
