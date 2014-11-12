@@ -50,6 +50,10 @@ typedef void (^AFServiceProviderRequestCompletionBlock)();
 + (NSString *)queryStringFromParameters:(NSDictionary *)parameters encoding:(NSStringEncoding)stringEncoding;
 
 - (NSMutableURLRequest *)requestWithMethod:(NSString *)method path:(NSString *)path parameters:(NSDictionary *)parameters;
+- (NSMutableURLRequest *)multipartFormRequestWithMethod:(NSString *)method
+												   path:(NSString *)path
+											 parameters:(NSDictionary *)parameters
+							  constructingBodyWithBlock:(void (^)(id <AFMultipartFormData> formData))block;
 
 ///---------------------
 /// @name Initialization

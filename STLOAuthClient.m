@@ -289,80 +289,6 @@ static NSDictionary * AFKeychainQueryDictionaryWithIdentifier(NSString *identifi
 
 #pragma mark -
 
-- (void)acquireOAuthRequestTokenWithPath:(NSString *)path
-							accessMethod:(NSString *)accessMethod
-							 synchronous:(BOOL)synchronous
-								 success:(void (^)(id responseObject))success
-								 failure:(void (^)(NSError *error))failure
-{
-	NSMutableDictionary *parameters = [[self OAuthParameters] mutableCopy];
-	NSMutableURLRequest *request = [self requestWithMethod:accessMethod path:path parameters:parameters];
-	AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request success:^(AFHTTPRequestOperation *operation, id responseObject) {
-		if (success) {
-			NSDictionary *response = (NSDictionary *) responseObject;
-			self.token = [response objectForKey:@"oauth_token"];
-			self.tokenSecret = [response objectForKey:@"oauth_token_secret"];
-			success(responseObject);
-		}
-	} failure:^(AFHTTPRequestOperation *operation, NSError *error) {
-		if (failure) {
-			failure(error);
-		}
-	}];
-	operation.responseSerializer = [AFJSONResponseSerializer serializer];
-	if (!synchronous) {
-		[self.operationQueue addOperation:operation];
-	}
-	[operation start];
-	[operation waitUntilFinished];
-	if ([operation.response statusCode] == 200) {
-		NSDictionary *response = (NSDictionary *) operation.responseObject;
-		self.token = [response objectForKey:@"oauth_token"];
-		self.tokenSecret = [response objectForKey:@"oauth_token_secret"];
-		success(operation.responseObject);
-	}else{
-		if (failure) {
-			failure(operation.error);
-		}
-	}
-}
-
-- (void)acquireOAuthAccessTokenWithPath:(NSString *)path
-							   userInfo:(NSDictionary *)userInfo
-						   accessMethod:(NSString *)accessMethod
-								success:(void (^)(id responseObject))success
-								failure:(void (^)(NSError *error))failure
-{
-	if (self.token) {
-		
-		NSMutableDictionary *parameters = [[self OAuthParameters] mutableCopy];
-		parameters[@"oauth_token"] = self.token;
-		[parameters addEntriesFromDictionary:userInfo];
-		
-		NSMutableURLRequest *request = [self requestWithMethod:accessMethod path:path parameters:parameters];
-		AFHTTPRequestOperation *operation = [self HTTPRequestOperationWithRequest:request success:^(AFHTTPRequestOperation *operation, id responseObject) {
-			if (success) {
-				NSDictionary *response = (NSDictionary *) responseObject;
-				self.token = [response objectForKey:@"oauth_token"];
-				self.tokenSecret = [response objectForKey:@"oauth_token_secret"];
-				success(responseObject);
-			}
-		} failure:^(AFHTTPRequestOperation *operation, NSError *error) {
-			if (failure) {
-				failure(error);
-			}
-		}];
-		operation.responseSerializer = [AFJSONResponseSerializer serializer];
-		[self.operationQueue addOperation:operation];
-	} else {
-		NSDictionary *userInfo = [NSDictionary dictionaryWithObject:NSLocalizedStringFromTable(@"Bad OAuth response received from the server.", @"AFNetworking", nil) forKey:NSLocalizedFailureReasonErrorKey];
-		NSError *error = [[NSError alloc] initWithDomain:NSURLErrorDomain code:NSURLErrorBadServerResponse userInfo:userInfo];
-		failure(error);
-	}
-}
-
-#pragma mark -
-
 - (void)setServiceProviderRequestHandler:(void (^)(NSURLRequest *request))block
 							  completion:(void (^)())completion
 {
@@ -440,9 +366,16 @@ static NSDictionary * AFKeychainQueryDictionaryWithIdentifier(NSString *identifi
 	
 	// Only use parameters in the request entity body (with a content-type of `application/x-www-form-urlencoded`).
 	// See RFC 5849, Section 3.4.1.3.1 http://tools.ietf.org/html/rfc5849#section-3.4
-	NSDictionary *authorizationParameters = parameters;
+	NSMutableDictionary *authorizationParameters = [parameters mutableCopy];
 	if (!([method isEqualToString:@"GET"] || [method isEqualToString:@"HEAD"] || [method isEqualToString:@"DELETE"])) {
-		authorizationParameters = ([[request valueForHTTPHeaderField:@"Content-Type"] hasPrefix:@"application/x-www-form-urlencoded"] ? parameters : nil);
+		if ([[request valueForHTTPHeaderField:@"Content-Type"] hasPrefix:@"application/x-www-form-urlencoded"]) {
+			authorizationParameters = parameters;
+		}else{
+			authorizationParameters = [[self OAuthParameters] mutableCopy];
+			if (self.token) {
+				authorizationParameters[@"oauth_token"] = self.token;
+			}
+		}
 	}
 	
 	[request setValue:[self authorizationHeaderForMethod:method path:path parameters:authorizationParameters] forHTTPHeaderField:@"Authorization"];
@@ -456,12 +389,36 @@ static NSDictionary * AFKeychainQueryDictionaryWithIdentifier(NSString *identifi
 											 parameters:(NSDictionary *)parameters
 							  constructingBodyWithBlock:(void (^)(id <AFMultipartFormData> formData))block
 {
-	NSError *error;
-	NSMutableURLRequest *request = [[AFHTTPRequestOperationManager manager].requestSerializer multipartFormRequestWithMethod:method URLString:self.url.absoluteString parameters:parameters constructingBodyWithBlock:block error:&error];
 	
-	// Only use parameters in the HTTP POST request body (with a content-type of `application/x-www-form-urlencoded`).
+	NSMutableDictionary *mutableParameters = [parameters mutableCopy];
+	[mutableParameters addEntriesFromDictionary:[[self OAuthParameters] mutableCopy]];
+	if (self.token) {
+		mutableParameters[@"oauth_token"] = self.token;
+	}
+	
+	NSDictionary *parametersCopy = [mutableParameters mutableCopy];
+	for (NSString *key in parametersCopy) {
+		if ([key hasPrefix:@"oauth_"]) {
+			[mutableParameters removeObjectForKey:key];
+		}
+	}
+	
+	NSMutableURLRequest *request = [self.requestSerializer multipartFormRequestWithMethod:@"POST" URLString:[[NSURL URLWithString:path relativeToURL:self.baseURL] absoluteString] parameters:parameters constructingBodyWithBlock:block error:nil];
+	
+	// Only use parameters in the request entity body (with a content-type of `application/x-www-form-urlencoded`).
 	// See RFC 5849, Section 3.4.1.3.1 http://tools.ietf.org/html/rfc5849#section-3.4
-	NSDictionary *authorizationParameters = ([[request valueForHTTPHeaderField:@"Content-Type"] hasPrefix:@"application/x-www-form-urlencoded"] ? parameters : nil);
+	NSMutableDictionary *authorizationParameters = [parameters mutableCopy];
+	if (!([method isEqualToString:@"GET"] || [method isEqualToString:@"HEAD"] || [method isEqualToString:@"DELETE"])) {
+		if ([[request valueForHTTPHeaderField:@"Content-Type"] hasPrefix:@"application/x-www-form-urlencoded"]) {
+			authorizationParameters = parameters;
+		}else{
+			authorizationParameters = [[self OAuthParameters] mutableCopy];
+			if (self.token) {
+				authorizationParameters[@"oauth_token"] = self.token;
+			}
+		}
+	}
+	
 	[request setValue:[self authorizationHeaderForMethod:method path:path parameters:authorizationParameters] forHTTPHeaderField:@"Authorization"];
 	[request setHTTPShouldHandleCookies:NO];
 	

@@ -1,13 +1,13 @@
 Pod::Spec.new do |s|
   s.name         = 'STLOAuth'
-  s.version      = '2.0.0'
+  s.version      = '2.0.1'
   s.summary      = 'AFNetwork 2.X + OAuth 1.0'
   s.author = {
     'Jesus Lopez' => 'inyenia@gmail.com'
   }
   s.source = {
     :git => 'https://github.com/inyenia/stl-oauth-client.git',
-    :tag => "2.0.0"
+    :tag => "2.0.1"
   }
   s.source_files = '*.{h,m}'
 
